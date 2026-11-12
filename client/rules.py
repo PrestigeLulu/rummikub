@@ -18,24 +18,22 @@ def _split(tiles):
 
 # 첫번째 조건 같은숫자이면서 다른 색상인지 검사
 def is_valid_group(tiles):
-    if len(tiles) < 3 or len(tiles) > 4:
+    # 같은 색상이라면 패가 무조건 3개 아니면 4
+    if len(tiles) not in (3, 4):
         return False
-
-    jokers, normals = _split(tiles)
-    if len(normals) == 0:        
+    _, normals = _split(tiles)
+    # 일반 타일이 1개 이상 필수
+    if not normals: # 빈 배열은 Fasle 가 된다
         return False
-
-    number = normals[0][1]
-    used_colors = []
-    for t in normals:
-        if t[1] != number:       
-            return False
-        if t[0] not in COLORS:   
-            return False
-        if t[0] in used_colors:  
-            return False
-        used_colors.append(t[0])
-    return True
+    # 행렬 변환으로 색과 숫자 분리
+    colors, numbers = zip(*normals)
+    # 조건검증
+    return (
+        # 숫자의 집합이 같은 숫자들
+        len(set(numbers)) == 1
+        # 색상의 집합이 패의 갯수와 같다면 전부 다른 색
+        and len(set(colors)) == len(normals)
+    )
 
 
 # 2번째 같은 색상이면서 연속된 숫자인지 검사
