@@ -1,286 +1,384 @@
 
-<!DOCTYPE html>
-<html lang="ko">
-<head>
-<meta charset="UTF-8">
-<title>루미큐브</title>
+import tkinter as tk
+from tkinter import messagebox
+import random
 
-<style>
-body {
-    margin: 0;
-    background: #176B45;
-    font-family: Arial, sans-serif;
-    color: white;
+# -------------------------
+# 기본 설정
+# -------------------------
+
+root = tk.Tk()
+root.title("루미큐브")
+root.geometry("1000x750")
+root.configure(bg="#176B45")
+root.resizable(False, False)
+
+# 색상
+colors = {
+    "red": "#e53935",
+    "blue": "#1565c0",
+    "black": "#222222",
+    "orange": "#ef8c00",
+    "joker": "purple"
 }
 
-.container {
-    width: 95%;
-    margin: 20px auto;
-}
+# 타일 데이터
+tiles = []
+hand = []
+room_tiles = []
 
-.game-room {
-    background: #105235;
-    height: 350px;
-    border-radius: 15px;
-    padding: 20px;
-    position: relative;
-    box-sizing: border-box;
-}
+dragging = None
+drag_start = None
 
-h2 {
-    text-align: center;
-}
+# -------------------------
+# 타일 106개 생성
+# -------------------------
 
-.my-tiles {
-    background: #105235;
-    min-height: 170px;
-    border-radius: 15px;
-    padding: 15px;
-    margin-top: 20px;
-}
+def create_tiles():
+    global tiles
 
-.tile-list {
-    display: flex;
-    justify-content: center;
-    flex-wrap: wrap;
-    gap: 10px;
-}
+    tiles = []
 
-.tile {
-    width: 55px;
-    height: 75px;
-    background: white;
-    border-radius: 7px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 30px;
-    font-weight: bold;
-    box-shadow: 2px 3px 5px #083b27;
-    cursor: grab;
-    user-select: none;
-    touch-action: none;
-    position: relative;
-}
+    for color in ["red", "blue", "black", "orange"]:
+        for number in range(1, 14):
+            tiles.append({
+                "color": color,
+                "number": number
+            })
+            tiles.append({
+                "color": color,
+                "number": number
+            })
 
-.red { color: red; }
-.blue { color: blue; }
-.black { color: black; }
-.orange { color: orange; }
-.joker { color: purple; }
+    # 조커 2개
+    tiles.append({
+        "color": "joker",
+        "number": 0
+    })
 
-.tile.dragging {
-    position: fixed;
-    z-index: 1000;
-    pointer-events: none;
-}
+    tiles.append({
+        "color": "joker",
+        "number": 0
+    })
 
-.controls {
-    text-align: center;
-    margin-top: 15px;
-}
+    random.shuffle(tiles)
+    update_count()
 
-button {
-    padding: 12px 25px;
-    background: #f5c542;
-    border: none;
-    border-radius: 8px;
-    font-size: 16px;
-    font-weight: bold;
-    cursor: pointer;
-}
 
-button:hover {
-    background: #ffe082;
-}
+# -------------------------
+# 화면 구성
+# -------------------------
 
-#tileCount {
-    text-align: center;
-    margin-top: 10px;
-}
-</style>
-</head>
+canvas = tk.Canvas(
+    root,
+    width=960,
+    height=700,
+    bg="#176B45",
+    highlightthickness=0
+)
 
-<body>
+canvas.pack(padx=20, pady=20)
 
-<div class="container">
+# 게임방
+canvas.create_rectangle(
+    10, 10, 950, 370,
+    fill="#105235",
+    outline="#105235"
+)
 
-    <div class="game-room" id="gameRoom">
-        <h2>게임방</h2>
-    </div>
+canvas.create_text(
+    480, 35,
+    text="게임방",
+    fill="white",
+    font=("Arial", 22, "bold")
+)
 
-    <div class="my-tiles">
-        <h2>내 타일</h2>
+# 내 타일 영역
+canvas.create_rectangle(
+    10, 390, 950, 680,
+    fill="#105235",
+    outline="#105235"
+)
 
-        <div class="tile-list" id="tileList"></div>
+canvas.create_text(
+    480, 415,
+    text="내 타일",
+    fill="white",
+    font=("Arial", 22, "bold")
+)
 
-        <div class="controls">
-            <button onclick="drawTile()">랜덤 타일 뽑기</button>
-            <button onclick="startGame()">게임 시작 (14개)</button>
-        </div>
+# -------------------------
+# 타일 그리기
+# -------------------------
 
-        <p id="tileCount">남은 타일: 106개</p>
-    </div>
+def draw_tile(tile, x, y, zone):
 
-</div>
+    tag = f"tile_{id(tile)}"
 
-<script>
-const gameRoom = document.getElementById("gameRoom");
-const tileList = document.getElementById("tileList");
+    color = colors[tile["color"]]
 
-let tiles = [];
-let hand = [];
+    if tile["color"] == "joker":
+        number = "★"
+    else:
+        number = str(tile["number"])
 
-const colors = ["red", "blue", "black", "orange"];
+    canvas.create_rectangle(
+        x, y, x + 50, y + 65,
+        fill="white",
+        outline="#dddddd",
+        width=2,
+        tags=(tag, "tile")
+    )
 
-// 타일 106개 생성
-function createTiles() {
-    tiles = [];
+    canvas.create_text(
+        x + 25, y + 32,
+        text=number,
+        fill=color,
+        font=("Arial", 25, "bold"),
+        tags=(tag, "tile")
+    )
 
-    colors.forEach(color => {
-        for (let number = 1; number <= 13; number++) {
-            tiles.push({color, number});
-            tiles.push({color, number});
-        }
-    });
+    canvas.addtag_withtag(zone, tag)
 
-    tiles.push({color: "joker", number: 0});
-    tiles.push({color: "joker", number: 0});
 
-    // 랜덤 섞기
-    for (let i = tiles.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [tiles[i], tiles[j]] = [tiles[j], tiles[i]];
-    }
+# -------------------------
+# 내 타일 정렬
+# -------------------------
 
-    updateCount();
-}
+def arrange_hand():
 
-// 타일 화면 만들기
-function createTileElement(tile) {
-    const div = document.createElement("div");
+    canvas.delete("hand")
 
-    div.className = "tile " + tile.color;
-    div.innerText =
-        tile.color === "joker" ? "★" : tile.number;
+    for i, tile in enumerate(hand):
 
-    div.addEventListener("pointerdown", e => {
-        startDrag(e, div);
-    });
+        x = 25 + (i % 16) * 57
+        y = 440 + (i // 16) * 75
 
-    return div;
-}
+        draw_tile(tile, x, y, "hand")
 
-// 타일 뽑기
-function drawTile() {
-    if (tiles.length === 0) {
-        alert("남은 타일이 없습니다!");
-        return;
-    }
 
-    const tile = tiles.pop();
+# -------------------------
+# 게임방 타일 그리기
+# -------------------------
 
-    hand.push(tile);
+def arrange_room():
 
-    tileList.appendChild(createTileElement(tile));
+    canvas.delete("room")
 
-    updateCount();
-}
+    for tile in room_tiles:
 
-// 게임 시작
-function startGame() {
-    if (hand.length > 0) {
-        alert("이미 타일을 가지고 있습니다!");
-        return;
-    }
+        draw_tile(
+            tile,
+            tile["x"],
+            tile["y"],
+            "room"
+        )
 
-    for (let i = 0; i < 14; i++) {
-        if (tiles.length === 0) break;
 
-        const tile = tiles.pop();
-        hand.push(tile);
-        tileList.appendChild(createTileElement(tile));
-    }
+# -------------------------
+# 랜덤 타일 뽑기
+# -------------------------
 
-    updateCount();
-}
+def draw_random_tile():
 
-// 남은 타일 표시
-function updateCount() {
-    document.getElementById("tileCount").innerText =
-        "남은 타일: " + tiles.length + "개";
-}
+    if not tiles:
+        messagebox.showinfo(
+            "알림",
+            "남은 타일이 없습니다!"
+        )
+        return
 
-// 드래그 기능
-let draggedTile = null;
-let offsetX = 0;
-let offsetY = 0;
+    tile = tiles.pop()
 
-function startDrag(e, tile) {
-    draggedTile = tile;
+    hand.append(tile)
 
-    const rect = tile.getBoundingClientRect();
+    arrange_hand()
+    update_count()
 
-    offsetX = e.clientX - rect.left;
-    offsetY = e.clientY - rect.top;
 
-    tile.classList.add("dragging");
-    document.body.appendChild(tile);
+# -------------------------
+# 게임 시작
+# -------------------------
 
-    moveTile(e);
+def start_game():
 
-    tile.setPointerCapture(e.pointerId);
-}
+    if hand:
+        messagebox.showinfo(
+            "알림",
+            "이미 타일을 가지고 있습니다!"
+        )
+        return
 
-document.addEventListener("pointermove", e => {
-    if (!draggedTile) return;
-    moveTile(e);
-});
+    for i in range(14):
 
-document.addEventListener("pointerup", e => {
-    if (!draggedTile) return;
+        if not tiles:
+            break
 
-    const roomRect = gameRoom.getBoundingClientRect();
+        hand.append(tiles.pop())
 
-    const insideRoom =
-        e.clientX >= roomRect.left &&
-        e.clientX <= roomRect.right &&
-        e.clientY >= roomRect.top &&
-        e.clientY <= roomRect.bottom;
+    arrange_hand()
+    update_count()
 
-    draggedTile.classList.remove("dragging");
 
-    if (insideRoom) {
-        draggedTile.style.position = "absolute";
-        draggedTile.style.left =
-            (e.clientX - roomRect.left - offsetX) + "px";
-        draggedTile.style.top =
-            (e.clientY - roomRect.top - offsetY) + "px";
+# -------------------------
+# 타일 개수 표시
+# -------------------------
 
-        gameRoom.appendChild(draggedTile);
-    } else {
-        draggedTile.style.position = "relative";
-        draggedTile.style.left = "auto";
-        draggedTile.style.top = "auto";
+def update_count():
 
-        tileList.appendChild(draggedTile);
-    }
+    canvas.delete("count")
 
-    draggedTile = null;
-});
+    canvas.create_text(
+        480, 655,
+        text=f"남은 타일: {len(tiles)}개",
+        fill="white",
+        font=("Arial", 14, "bold"),
+        tags="count"
+    )
 
-function moveTile(e) {
-    draggedTile.style.left =
-        (e.clientX - offsetX) + "px";
 
-    draggedTile.style.top =
-        (e.clientY - offsetY) + "px";
-}
+# -------------------------
+# 드래그 시작
+# -------------------------
 
-// 처음 실행
-createTiles();
+def mouse_down(event):
 
-</script>
+    global dragging, drag_start
 
-</body>
-</html>
+    items = canvas.find_overlapping(
+        event.x, event.y,
+        event.x, event.y
+    )
+
+    for item in reversed(items):
+
+        tags = canvas.gettags(item)
+
+        for tag in tags:
+
+            if tag.startswith("tile_"):
+
+                dragging = tag
+
+                drag_start = (
+                    event.x,
+                    event.y
+                )
+
+                return
+
+
+# -------------------------
+# 타일 이동
+# -------------------------
+
+def mouse_move(event):
+
+    global dragging
+
+    if dragging is None:
+        return
+
+    canvas.move(
+        dragging,
+        event.x - drag_start[0],
+        event.y - drag_start[1]
+    )
+
+    drag_start = (event.x, event.y)
+
+
+# -------------------------
+# 드래그 종료
+# -------------------------
+
+def mouse_up(event):
+
+    global dragging
+
+    if dragging is None:
+        return
+
+    coords = canvas.coords(dragging)
+
+    if not coords:
+        dragging = None
+        return
+
+    x = coords[0]
+    y = coords[1]
+
+    tile = None
+
+    for t in hand + room_tiles:
+
+        if f"tile_{id(t)}" == dragging:
+            tile = t
+            break
+
+    if tile is None:
+        dragging = None
+        return
+
+    # 게임방 안에 놓았을 때
+    if 10 <= x <= 900 and 10 <= y <= 300:
+
+        if tile in hand:
+            hand.remove(tile)
+            room_tiles.append(tile)
+
+        tile["x"] = x
+        tile["y"] = y
+
+    else:
+
+        # 내 타일 영역으로 이동
+        if tile in room_tiles:
+            room_tiles.remove(tile)
+            hand.append(tile)
+
+    dragging = None
+
+    arrange_hand()
+    arrange_room()
+    update_count()
+
+
+# -------------------------
+# 버튼
+# -------------------------
+
+draw_button = tk.Button(
+    root,
+    text="랜덤 타일 뽑기",
+    font=("Arial", 13, "bold"),
+    bg="#f5c542",
+    command=draw_random_tile
+)
+
+start_button = tk.Button(
+    root,
+    text="게임 시작 (14개)",
+    font=("Arial", 13, "bold"),
+    bg="#f5c542",
+    command=start_game
+)
+
+draw_button.place(x=330, y=725)
+start_button.place(x=510, y=725)
+
+# -------------------------
+# 마우스 이벤트
+# -------------------------
+
+canvas.bind("<Button-1>", mouse_down)
+canvas.bind("<B1-Motion>", mouse_move)
+canvas.bind("<ButtonRelease-1>", mouse_up)
+
+# -------------------------
+# 처음 실행
+# -------------------------
+
+create_tiles()
+
+root.mainloop()
